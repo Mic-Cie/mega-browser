@@ -39,6 +39,7 @@ func NewMegaBrowser(megaClient StorageClient, fs Fs) *MegaBrowser {
 	return browser
 }
 
+// Initialize logs in to the Mega repository and initializes the browser parameters, based on that repository.
 func (mb *MegaBrowser) Initialize() error {
 	err := mb.megaClient.Login(login, pass)
 	if err != nil {
