@@ -11,8 +11,6 @@ const (
 	pass = `password`
 	// rootNodeName is the name of the directory which will be considered root directory of the updated application. Make sure to place it in the root of your Mega repository.
 	rootNodeName = "root-node-name"
-	// directoryType is the integer value, which specifies that node is a directory, not a file.
-	directoryType = 1
 )
 
 var errGetRootNodeHash = fmt.Errorf("failed to get root node hash")
