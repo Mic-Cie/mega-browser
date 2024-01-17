@@ -25,12 +25,6 @@ type mockFs struct {
 	errGetChildren error
 }
 
-type mockNode struct {
-	name     string
-	nodeType int
-	hash     string
-}
-
 func TestShouldSuccessfullyInitializeBrowser(t *testing.T) {
 	mockFs := mockFs{}
 	mockClient := mockClient{
@@ -121,18 +115,6 @@ func (m *mockFs) GetChildren(node *mega.Node) ([]*mega.Node, error) {
 
 func (m *mockFs) GetRoot() *mega.Node {
 	return nil
-}
-
-func (m *mockNode) GetName() string {
-	return m.name
-}
-
-func (m *mockNode) GetType() int {
-	return m.nodeType
-}
-
-func (m *mockNode) GetHash() string {
-	return m.hash
 }
 
 func mockGetRootNodeHash(nodes []Node) (string, error) {
