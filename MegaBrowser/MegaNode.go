@@ -30,10 +30,27 @@ func nodeStructArrToInterfaceArr(nodes []*mega.Node) []Node {
 
 // getNodeHashOfExpectedFile expects that given list of nodes contains a file of specific name. Returns that file's hash, otherwise, if that file is not found, returns an error
 func getNodeHashOfExpectedFile(expectedFile string, currDirChildNodes *[]Node) (string, error) {
+	hash := getNodeHashOfExpectedItem(expectedFile, fileType, currDirChildNodes)
+	if hash == "" {
+		return "", fmt.Errorf("could not find file: %s", expectedFile)
+	}
+	return hash, nil
+}
+
+// getNodeHashOfExpectedDirectory expects that given list of nodes contains a directory of specific name. Returns that directory's hash, otherwise, if that file is not found, returns an error
+func getNodeHashOfExpectedDirectory(expectedDirectory string, currDirChildNodes *[]Node) (string, error) {
+	hash := getNodeHashOfExpectedItem(expectedDirectory, directoryType, currDirChildNodes)
+	if hash == "" {
+		return "", fmt.Errorf("could not find directory: %s", expectedDirectory)
+	}
+	return hash, nil
+}
+
+func getNodeHashOfExpectedItem(expectedItem string, expectedItemType int, currDirChildNodes *[]Node) string {
 	for _, child := range *currDirChildNodes {
-		if child.GetName() == expectedFile && child.GetType() == fileType {
-			return child.GetHash(), nil
+		if child.GetName() == expectedItem && child.GetType() == expectedItemType {
+			return child.GetHash()
 		}
 	}
-	return "", fmt.Errorf("could not find file: %s", expectedFile)
+	return ""
 }

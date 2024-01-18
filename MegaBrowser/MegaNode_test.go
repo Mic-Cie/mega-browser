@@ -24,7 +24,7 @@ func TestShouldConvertStructArrayToInterfaceArray(t *testing.T) {
 	assert.Equal(t, len(nodes), len(convertedNodes))
 }
 
-func TestShouldReturnNodeHashIfExistsOnTheList(t *testing.T) {
+func TestShouldReturnNodeHashIfFileExistsOnTheList(t *testing.T) {
 	expName := "expected file name"
 	expHash := "exphash"
 	nodes := []Node{
@@ -60,6 +60,44 @@ func TestShouldFailIfFileNotExistOnTheList(t *testing.T) {
 
 	assert.Empty(t, hash)
 	assert.Equal(t, fmt.Errorf("could not find file: %s", expName), err)
+}
+
+func TestShouldReturnNodeHashIfDirectoryExistsOnTheList(t *testing.T) {
+	expName := "expected directory name"
+	expHash := "exphash"
+	nodes := []Node{
+		&mockNode{
+			name:     "other name",
+			nodeType: fileType,
+			hash:     "hash",
+		},
+		&mockNode{
+			name:     expName,
+			nodeType: directoryType,
+			hash:     expHash,
+		},
+	}
+
+	hash, err := getNodeHashOfExpectedDirectory(expName, &nodes)
+
+	assert.Equal(t, expHash, hash)
+	assert.Nil(t, err)
+}
+
+func TestShouldFailIfDirectoryNotExistOnTheList(t *testing.T) {
+	expName := "expected file name"
+	nodes := []Node{
+		&mockNode{
+			name:     "other name",
+			nodeType: fileType,
+			hash:     "hash",
+		},
+	}
+
+	hash, err := getNodeHashOfExpectedDirectory(expName, &nodes)
+
+	assert.Empty(t, hash)
+	assert.Equal(t, fmt.Errorf("could not find directory: %s", expName), err)
 }
 
 func (m *mockNode) GetName() string {
