@@ -25,7 +25,6 @@ var (
 
 type mockClient struct {
 	errLogin error
-	fs       Fs
 }
 
 type mockFs struct {
@@ -33,172 +32,194 @@ type mockFs struct {
 	errGetChildren error
 }
 
-func TestShouldSuccessfullyInitializeBrowser(t *testing.T) {
-	mockFs := mockFs{}
-	mockClient := mockClient{
-		errLogin: nil,
-		fs:       &mockFs,
-	}
-	storageBrowser := NewMegaBrowser(&mockClient, &mockFs)
-	storageBrowser.getRootNodeHash = mockGetRootNodeHash
-	err := storageBrowser.Initialize()
-	assert.Equal(t, expRootNodeHash, storageBrowser.rootNodeHash)
-	assert.Nil(t, err)
-}
-
-func TestShouldFailInitializingBrowserIfFailedToLogin(t *testing.T) {
-	mockClient := mockClient{
-		errLogin: errLogin,
-	}
-	storageBrowser := NewMegaBrowser(&mockClient, nil)
-	err := storageBrowser.Initialize()
-	assert.Equal(t, errLogin, err)
-}
-
-func TestShouldFailIfCouldNotGetNodeChildren(t *testing.T) {
-	mockFs := mockFs{
-		errGetChildren: errGetChildren,
-	}
-	mockClient := mockClient{
-		nil,
-		&mockFs,
-	}
-	storageBrowser := NewMegaBrowser(&mockClient, &mockFs)
-	err := storageBrowser.Initialize()
-	require.Equal(t, errGetChildren, err)
-}
-
-func TestShouldFailIfCouldNotGetRootNodeHash(t *testing.T) {
-	mockFs := mockFs{
-		errGetChildren: nil,
-	}
-	mockClient := mockClient{
-		nil,
-		&mockFs,
-	}
-	storageBrowser := NewMegaBrowser(&mockClient, &mockFs)
-	err := storageBrowser.Initialize()
-	require.Equal(t, errGetRootNodeHash, err)
-}
-
-func TestShouldFailIfNoneOfTheNodesIsRoot(t *testing.T) {
-	nodes := []Node{
-		&mockNode{}, &mockNode{},
-	}
-
-	rootNodeHash, err := getRootNodeHash(nodes)
-
-	assert.Empty(t, rootNodeHash)
-	assert.Equal(t, errGetRootNodeHash, err)
-}
-
-func TestShouldSuccessfullyGetRootNodeHash(t *testing.T) {
-	nodes := []Node{
-		&mockNode{
-			name:     rootNodeName,
-			nodeType: 1,
-			hash:     expRootNodeHash,
+func TestInitializeStorageBrowser(t *testing.T) {
+	tests := []struct {
+		name                    string
+		loginError              error
+		getChildrenError        error
+		getRootNodeHashFunction getRootNodeHashFunc
+		expRootNodeHash         string
+		expErr                  error
+	}{
+		{
+			name:                    "should successfully initialize browser, if all inputs are valid",
+			loginError:              nil,
+			getChildrenError:        nil,
+			getRootNodeHashFunction: mockGetRootNodeHash,
+			expRootNodeHash:         expRootNodeHash,
+			expErr:                  nil,
+		},
+		{
+			name:                    "should fail, if could not login to Mega",
+			loginError:              errLogin,
+			getChildrenError:        nil,
+			getRootNodeHashFunction: mockGetRootNodeHash,
+			expRootNodeHash:         "",
+			expErr:                  errLogin,
+		},
+		{
+			name:                    "should fail, if could not get children of Mega repository root",
+			loginError:              nil,
+			getChildrenError:        errGetChildren,
+			getRootNodeHashFunction: nil,
+			expRootNodeHash:         "",
+			expErr:                  errGetChildren,
+		},
+		{
+			name:                    "should fail, if could not find the expected project root node",
+			loginError:              nil,
+			getChildrenError:        nil,
+			getRootNodeHashFunction: nil,
+			expRootNodeHash:         "",
+			expErr:                  errGetRootNodeHash,
 		},
 	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mockClient := mockClient{
+				errLogin: test.loginError,
+			}
+			mockFs := mockFs{
+				errGetChildren: test.getChildrenError,
+			}
+			storageBrowser := NewMegaBrowser(&mockClient, &mockFs)
+			if test.getRootNodeHashFunction != nil {
+				storageBrowser.getRootNodeHash = test.getRootNodeHashFunction
+			}
 
-	rootNodeHash, err := getRootNodeHash(nodes)
+			err := storageBrowser.Initialize()
 
-	assert.Equal(t, expRootNodeHash, rootNodeHash)
-	assert.Nil(t, err)
+			assert.Equal(t, test.expRootNodeHash, storageBrowser.rootNodeHash)
+			assert.Equal(t, test.expErr, err)
+		})
+	}
 }
 
-func TestShouldSuccessfullyGetObjectNode(t *testing.T) {
-	mockFs := mockFs{
-		errGetChildren: nil,
+func TestGetRootNodeHash(t *testing.T) {
+	tests := []struct {
+		name            string
+		nodes           []Node
+		expRootNodeHash string
+		expErr          error
+	}{
+		{
+			name: "should successfully get root node hash, if given list containing a root node",
+			nodes: []Node{
+				&mockNode{
+					name:     rootNodeName,
+					nodeType: 1,
+					hash:     expRootNodeHash,
+				},
+			},
+			expRootNodeHash: expRootNodeHash,
+			expErr:          nil,
+		},
+		{
+			name: "should fail, if none of the nodes is project root",
+			nodes: []Node{
+				&mockNode{}, &mockNode{},
+			},
+			expRootNodeHash: "",
+			expErr:          errGetRootNodeHash,
+		},
 	}
-	mockClient := mockClient{
-		nil,
-		&mockFs,
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rootNodeHash, err := getRootNodeHash(test.nodes)
+
+			assert.Equal(t, test.expRootNodeHash, rootNodeHash)
+			assert.Equal(t, test.expErr, err)
+		})
 	}
-	storageBrowser := NewMegaBrowser(&mockClient, &mockFs)
-	storageBrowser.getRootNodeHash = getRootNodeHash
-	storageBrowser.getChildren = mockGetChildren
-
-	result, err := storageBrowser.GetObjectNode(filepath.Join(expDirName, expFileName))
-
-	assert.Equal(t, expFileHash, result)
-	assert.Nil(t, err)
 }
 
-func TestShouldFailGettingObjectNodeWhenCouldNotFindExpectedDirectory(t *testing.T) {
-	mockFs := mockFs{
-		errGetChildren: nil,
+func TestGetObjectNodeHash(t *testing.T) {
+	tests := []struct {
+		name                string
+		getChildrenError    error
+		getChildrenFunction getChildrenFunc
+		givenPath           string
+		targetSeparator     interface{}
+		expHash             string
+		expErr              error
+	}{
+		{
+			name:                "should successfully get object node hash, if all inputs are correct",
+			getChildrenError:    nil,
+			getChildrenFunction: mockGetChildren,
+			givenPath:           filepath.Join(expDirName, expFileName),
+			targetSeparator:     nil,
+			expHash:             expFileHash,
+			expErr:              nil,
+		},
+		{
+			name:                "should fail, if could not find expected directory",
+			getChildrenError:    nil,
+			getChildrenFunction: mockGetChildren,
+			givenPath:           filepath.Join("unexpectedDir", expFileName),
+			targetSeparator:     nil,
+			expHash:             "",
+			expErr:              fmt.Errorf("could not find directory: unexpectedDir"),
+		},
+		{
+			name:                "should fail, if could not find expected file",
+			getChildrenError:    nil,
+			getChildrenFunction: mockGetChildren,
+			givenPath:           filepath.Join(expDirName, "unexpFile"),
+			targetSeparator:     nil,
+			expHash:             "",
+			expErr:              fmt.Errorf("could not find file: unexpFile"),
+		},
+		{
+			name:                "should fail, if both path and separator is empty",
+			getChildrenError:    nil,
+			getChildrenFunction: mockGetChildren,
+			givenPath:           "",
+			targetSeparator:     "",
+			expHash:             "",
+			expErr:              fmt.Errorf("could not find object node for "),
+		},
+		{
+			name:                "should fail, if given path is empty",
+			getChildrenError:    nil,
+			getChildrenFunction: mockGetChildren,
+			givenPath:           "",
+			targetSeparator:     nil,
+			expHash:             "",
+			expErr:              fmt.Errorf("trying to find object node for an empty path"),
+		},
+		{
+			name:                "should fail, if could not get children of a node",
+			getChildrenError:    errGetChildren,
+			getChildrenFunction: nil,
+			givenPath:           "path",
+			targetSeparator:     nil,
+			expHash:             "",
+			expErr:              errGetChildren,
+		},
 	}
-	mockClient := mockClient{
-		nil,
-		&mockFs,
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mockFs := mockFs{
+				errGetChildren: test.getChildrenError,
+			}
+			mockClient := mockClient{}
+			storageBrowser := NewMegaBrowser(&mockClient, &mockFs)
+			storageBrowser.getRootNodeHash = getRootNodeHash
+			if test.getChildrenFunction != nil {
+				storageBrowser.getChildren = test.getChildrenFunction
+			}
+			if test.targetSeparator != nil {
+				require.IsType(t, "", test.targetSeparator)
+				storageBrowser.targetSeparator = test.targetSeparator.(string)
+			}
+
+			result, err := storageBrowser.GetObjectNode(test.givenPath)
+
+			assert.Equal(t, test.expHash, result)
+			assert.Equal(t, test.expErr, err)
+		})
 	}
-	storageBrowser := NewMegaBrowser(&mockClient, &mockFs)
-	storageBrowser.getRootNodeHash = getRootNodeHash
-	storageBrowser.getChildren = mockGetChildren
-
-	result, err := storageBrowser.GetObjectNode(filepath.Join("unexpectedDir", expFileName))
-
-	assert.Empty(t, result)
-	assert.Equal(t, fmt.Errorf("could not find directory: unexpectedDir"), err)
-}
-
-func TestShouldFailGettingObjectNodeWhenCouldNotFindExpectedFile(t *testing.T) {
-	mockFs := mockFs{
-		errGetChildren: nil,
-	}
-	mockClient := mockClient{
-		nil,
-		&mockFs,
-	}
-	storageBrowser := NewMegaBrowser(&mockClient, &mockFs)
-	storageBrowser.getRootNodeHash = getRootNodeHash
-	storageBrowser.getChildren = mockGetChildren
-
-	result, err := storageBrowser.GetObjectNode(filepath.Join(expDirName, "unexpFile"))
-
-	assert.Empty(t, result)
-	assert.Equal(t, fmt.Errorf("could not find file: unexpFile"), err)
-}
-
-func TestShouldFailGettingObjectNodeWhenBothPathAndSeparatorAreEmpty(t *testing.T) {
-	mockFs := mockFs{
-		errGetChildren: nil,
-	}
-	mockClient := mockClient{
-		nil,
-		&mockFs,
-	}
-	storageBrowser := NewMegaBrowser(&mockClient, &mockFs)
-	storageBrowser.getRootNodeHash = getRootNodeHash
-	storageBrowser.getChildren = mockGetChildren
-	storageBrowser.targetSeparator = ""
-
-	result, err := storageBrowser.GetObjectNode("")
-
-	assert.Empty(t, "", result)
-	assert.Equal(t, fmt.Errorf("could not find object node for "), err)
-}
-
-func TestShouldFailWhenGettingObjectNodeForEmptyPath(t *testing.T) {
-	storageBrowser := NewMegaBrowser(nil, nil)
-
-	result, err := storageBrowser.GetObjectNode("")
-
-	assert.Empty(t, result)
-	assert.Equal(t, fmt.Errorf("trying to find object node for an empty path"), err)
-}
-
-func TestShouldFailGettingObjectNodeWhenCouldNotGetChildren(t *testing.T) {
-	mockFs := mockFs{
-		errGetChildren: errGetChildren,
-	}
-	storageBrowser := NewMegaBrowser(nil, &mockFs)
-
-	result, err := storageBrowser.GetObjectNode("path")
-
-	assert.Empty(t, result)
-	assert.Equal(t, errGetChildren, err)
 }
 
 func TestShouldGetChildren(t *testing.T) {
