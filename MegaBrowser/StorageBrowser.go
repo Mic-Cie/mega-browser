@@ -2,6 +2,8 @@ package megabrowser
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 )
 
 const (
@@ -23,16 +25,21 @@ type MegaBrowser struct {
 	megaClient      StorageClient
 	megaFs          Fs
 	getRootNodeHash getRootNodeHashFunc
+	getChildren     getChildrenFunc
+	targetSeparator string
 	rootNodeHash    string
 }
 
 type getRootNodeHashFunc func(nodes []Node) (string, error)
+type getChildrenFunc func(fs Fs, nodeHash string) ([]Node, error)
 
 func NewMegaBrowser(megaClient StorageClient, fs Fs) *MegaBrowser {
 	browser := &MegaBrowser{
 		megaClient:      megaClient,
 		megaFs:          fs,
 		getRootNodeHash: getRootNodeHash,
+		getChildren:     getChildren,
+		targetSeparator: "/",
 	}
 	return browser
 }
@@ -59,8 +66,41 @@ func (mb *MegaBrowser) Initialize() error {
 	return nil
 }
 
-func (b *MegaBrowser) GetObjectNode(file string) (string, error) {
-	return "", nil
+func (mb *MegaBrowser) GetObjectNode(file string) (string, error) {
+	splitPath := strings.Split(filepath.ToSlash(file), mb.targetSeparator)
+	len := len(splitPath)
+	if len == 1 && splitPath[0] == "" {
+		return "", fmt.Errorf("trying to find object node for an empty path")
+	}
+
+	var targetFile string
+	var currentDir string
+	if len != 0 {
+		targetFile = splitPath[len-1]
+		currentDir = mb.rootNodeHash
+	}
+
+	for i, _ := range splitPath {
+		childNodes, err := mb.getChildren(mb.megaFs, currentDir)
+		if err != nil {
+			return "", err
+		}
+
+		if i == len-1 {
+			result, err := getNodeHashOfExpectedFile(targetFile, &childNodes)
+			if err != nil {
+				return "", err
+			}
+			return result, nil
+		} else {
+			var err error
+			currentDir, err = getNodeHashOfExpectedDirectory(splitPath[i], &childNodes)
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+	return "", fmt.Errorf("could not find object node for %s", file)
 }
 
 func getRootNodeHash(nodes []Node) (string, error) {
@@ -73,4 +113,13 @@ func getRootNodeHash(nodes []Node) (string, error) {
 		}
 	}
 	return "", errGetRootNodeHash
+}
+
+func getChildren(fs Fs, nodeHash string) ([]Node, error) {
+	currentDirNode := fs.HashLookup(nodeHash)
+	currDirChildNodes, err := fs.GetChildren(currentDirNode)
+	if err != nil {
+		return nil, err
+	}
+	return nodeStructArrToInterfaceArr(currDirChildNodes), nil
 }
