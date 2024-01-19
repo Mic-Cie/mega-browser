@@ -31,10 +31,10 @@ func TestShouldThrowNoErrorWhenDownloadingFileThatExistedLocally(t *testing.T) {
 func TestShouldFailIfGivenPathisIncorrect(t *testing.T) {
 	downloader := NewMegaDownloader()
 
-	err := downloader.DownloadFile(nil, "?@#$ ?@@#")
+	err := downloader.DownloadFile(nil, "?@#$ ?@@#\t\n\t")
 
 	require.NotNil(t, err)
-	assert.Contains(t, err.Error(), "?@#$ ?@@#:")
+	assert.Contains(t, err.Error(), "?@#$ ?@@#\t\n\t:")
 }
 
 func TestShouldThrowNoErrorWhenFailedToRemoveALocalFile(t *testing.T) {
