@@ -3,6 +3,7 @@ package megabrowser
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,11 +31,12 @@ func TestShouldThrowNoErrorWhenDownloadingFileThatExistedLocally(t *testing.T) {
 
 func TestShouldFailIfGivenPathisIncorrect(t *testing.T) {
 	downloader := NewMegaDownloader()
+	path := strings.Repeat("?", 1000)
 
-	err := downloader.DownloadFile(nil, "?@#$ ?@@#\t\n\t")
+	err := downloader.DownloadFile(nil, path)
 
 	require.NotNil(t, err)
-	assert.Contains(t, err.Error(), "?@#$ ?@@#\t\n\t:")
+	assert.Contains(t, err.Error(), path)
 }
 
 func TestShouldThrowNoErrorWhenFailedToRemoveALocalFile(t *testing.T) {
