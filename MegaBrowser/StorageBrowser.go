@@ -24,6 +24,7 @@ type StorageBrowser interface {
 type MegaBrowser struct {
 	megaClient      StorageClient
 	megaFs          Fs
+	downloader      Downloader
 	getRootNodeHash getRootNodeHashFunc
 	getChildren     getChildrenFunc
 	targetSeparator string
@@ -33,10 +34,11 @@ type MegaBrowser struct {
 type getRootNodeHashFunc func(nodes []Node) (string, error)
 type getChildrenFunc func(fs Fs, nodeHash string) ([]Node, error)
 
-func NewMegaBrowser(megaClient StorageClient, fs Fs) *MegaBrowser {
+func NewMegaBrowser(megaClient StorageClient, fs Fs, downloader Downloader) *MegaBrowser {
 	browser := &MegaBrowser{
 		megaClient:      megaClient,
 		megaFs:          fs,
+		downloader:      downloader,
 		getRootNodeHash: getRootNodeHash,
 		getChildren:     getChildren,
 		targetSeparator: "/",
