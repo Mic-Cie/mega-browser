@@ -20,9 +20,14 @@ var (
 func TestShouldThrowNoErrorWhenDownloadingFileThatNotExistLocally(t *testing.T) {
 	downloader := NewMegaDownloader()
 
-	err := downloader.DownloadFile(nil, "path/that/not/exist")
+	err := downloader.DownloadFile(nil, "temp/path/that/not/exist.txt")
 
 	assert.Nil(t, err)
+
+	dir, err := os.Getwd()
+	require.Nil(t, err)
+	err = os.Remove(filepath.Join(dir, "temp"))
+	require.Nil(t, err)
 }
 
 func TestShouldThrowNoErrorWhenDownloadingFileThatExistedLocally(t *testing.T) {

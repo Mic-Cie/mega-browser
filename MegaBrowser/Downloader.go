@@ -33,6 +33,11 @@ func (md *MegaDownloader) DownloadFile(node *mega.Node, localDownloadPath string
 		return err
 	}
 
+	err = md.createFileDirectoryIfNotExist(localDownloadPath)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
