@@ -20,11 +20,13 @@ const (
 
 var (
 	errLogin       = fmt.Errorf("mock login error")
-	errGetChildren = fmt.Errorf("mock get children")
+	errGetChildren = fmt.Errorf("mock get children error")
+	errDownload    = fmt.Errorf("mock download error")
 )
 
 type mockClient struct {
-	errLogin error
+	errLogin    error
+	errDownload error
 }
 
 type mockFs struct {
@@ -239,6 +241,10 @@ func TestShouldGetChildren(t *testing.T) {
 
 func (m *mockClient) Login(login string, pass string) error {
 	return m.errLogin
+}
+
+func (m *mockClient) DownloadFile(src *mega.Node, dstpath string, progress *chan int) error {
+	return m.errDownload
 }
 
 func (m *mockFs) GetChildren(node *mega.Node) ([]*mega.Node, error) {
