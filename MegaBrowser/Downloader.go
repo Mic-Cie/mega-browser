@@ -33,9 +33,15 @@ func (md *MegaDownloader) DownloadFile(node *mega.Node, localDownloadPath string
 		return err
 	}
 
+	err = md.createFileDirectoryIfNotExist(localDownloadPath)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
+// removeOutdatedFile removes a file that is supposed to be updated.
 func (md *MegaDownloader) removeOutdatedFile(localDownloadPath string) error {
 	if _, err := os.Stat(localDownloadPath); err != nil {
 		if !os.IsNotExist(err) {
@@ -50,6 +56,7 @@ func (md *MegaDownloader) removeOutdatedFile(localDownloadPath string) error {
 	return nil
 }
 
+// createFileDirectoryIfNotExist creates path for a file that is supposed to be downloaded. Does nothing, if the directory already exists.
 func (md *MegaDownloader) createFileDirectoryIfNotExist(downloadPathWithFile string) error {
 	fileDirectory := extractDirectoryFromFullPath(downloadPathWithFile)
 	_, err := os.Stat(fileDirectory)

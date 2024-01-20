@@ -17,80 +17,157 @@ var (
 	errMkDir      = fmt.Errorf("mock mkdir error")
 )
 
-func TestShouldThrowNoErrorWhenDownloadingFileThatNotExistLocally(t *testing.T) {
-	downloader := NewMegaDownloader()
+func TestDowloadFileSuccessCase(t *testing.T) {
+	tests := []struct {
+		name               string
+		path               string
+		removeFileFunction removeFileFunc
+		needCleanup        bool
+	}{
+		{
+			name:               "should not fail, if downloading file that does not exist locally",
+			path:               "temp/path/that/not/exist.txt",
+			removeFileFunction: nil,
+			needCleanup:        true,
+		},
+		{
+			name:               "should not fail, if downloading file that does exist locally",
+			path:               filepath.Join("testDir", "localFile.txt"),
+			removeFileFunction: mockRemoveFileSuccess,
+			needCleanup:        false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			downloader := NewMegaDownloader()
+			if test.removeFileFunction != nil {
+				downloader.removeFile = test.removeFileFunction
+			}
 
-	err := downloader.DownloadFile(nil, "path/that/not/exist")
+			err := downloader.DownloadFile(nil, test.path)
+			if test.needCleanup {
+				defer cleanupTestDir(t)
+			}
 
-	assert.Nil(t, err)
+			assert.Nil(t, err)
+		})
+	}
 }
 
-func TestShouldThrowNoErrorWhenDownloadingFileThatExistedLocally(t *testing.T) {
-	downloader := NewMegaDownloader()
-	downloader.removeFile = mockRemoveFileSuccess
+func TestDowloadFileFailCase(t *testing.T) {
+	tests := []struct {
+		name               string
+		path               string
+		removeFileFunction removeFileFunc
+		mkdirFunction      mkdirFunc
+		expErr             string
+	}{
+		{
+			name:               "should fail, if given path is incorrect",
+			path:               strings.Repeat("?", 1000),
+			removeFileFunction: nil,
+			mkdirFunction:      nil,
+			expErr:             strings.Repeat("?", 1000),
+		},
+		{
+			name:               "should fail, if could not remove the local file",
+			path:               filepath.Join("testDir", "localFile.txt"),
+			removeFileFunction: mockRemoveFileFail,
+			mkdirFunction:      nil,
+			expErr:             errRemoveFile.Error(),
+		},
+		{
+			name:               "should fail, if could not create a directory",
+			path:               "temp/path/that/not/exist.txt",
+			removeFileFunction: nil,
+			mkdirFunction:      mockMkDirFail,
+			expErr:             errMkDir.Error(),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			downloader := NewMegaDownloader()
+			if test.removeFileFunction != nil {
+				downloader.removeFile = test.removeFileFunction
+			}
+			if test.mkdirFunction != nil {
+				downloader.mkDir = test.mkdirFunction
+			}
 
-	err := downloader.DownloadFile(nil, filepath.Join("testDir", "localFile.txt"))
+			err := downloader.DownloadFile(nil, test.path)
 
-	assert.Nil(t, err)
+			require.NotNil(t, err)
+			require.NotEmpty(t, test.expErr)
+			assert.Contains(t, err.Error(), test.expErr)
+		})
+	}
 }
 
-func TestShouldFailIfGivenPathisIncorrect(t *testing.T) {
-	downloader := NewMegaDownloader()
-	path := strings.Repeat("?", 1000)
+func TestCreateDirectoryIfItNotExistsSuccessCase(t *testing.T) {
+	tests := []struct {
+		name        string
+		path        string
+		needCleanup bool
+	}{
+		{
+			name:        "should not fail, if target directory does not exist",
+			path:        "temp/file.txt",
+			needCleanup: true,
+		},
+		{
+			name:        "should not fail, if target directory already exists",
+			path:        "testDir/localFile.txt",
+			needCleanup: false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			downloader := NewMegaDownloader()
+			if test.needCleanup {
+				defer cleanupTestDir(t)
+			}
 
-	err := downloader.DownloadFile(nil, path)
+			err := downloader.createFileDirectoryIfNotExist(test.path)
 
-	require.NotNil(t, err)
-	assert.Contains(t, err.Error(), path)
+			assert.Nil(t, err)
+		})
+	}
 }
 
-func TestShouldFailWhenFailedToRemoveALocalFile(t *testing.T) {
-	downloader := NewMegaDownloader()
-	downloader.removeFile = mockRemoveFileFail
+func TestCreateDirectoryIfItNotExistsFailCase(t *testing.T) {
+	tests := []struct {
+		name          string
+		path          string
+		mkdirFunction mkdirFunc
+		expErr        string
+	}{
+		{
+			name:          "should fail, if could not create the directory",
+			path:          "temp/file.txt",
+			mkdirFunction: mockMkDirFail,
+			expErr:        errMkDir.Error(),
+		},
+		{
+			name:          "should fail, if given path is incorrect",
+			path:          filepath.Join(strings.Repeat("?", 1000), "path"),
+			mkdirFunction: nil,
+			expErr:        strings.Repeat("?", 1000),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			downloader := NewMegaDownloader()
+			if test.mkdirFunction != nil {
+				downloader.mkDir = test.mkdirFunction
+			}
 
-	err := downloader.DownloadFile(nil, filepath.Join("testDir", "localFile.txt"))
+			err := downloader.createFileDirectoryIfNotExist(test.path)
 
-	assert.Equal(t, errRemoveFile, err)
-}
-
-func TestShouldCreateDirectoryIfItNotExists(t *testing.T) {
-	downloader := NewMegaDownloader()
-
-	err := downloader.createFileDirectoryIfNotExist("temp/file.txt")
-
-	assert.Nil(t, err)
-
-	dir, err := os.Getwd()
-	require.Nil(t, err)
-	err = os.Remove(filepath.Join(dir, "temp"))
-	require.Nil(t, err)
-}
-
-func TestShouldNotCreateDirectoryIfItExists(t *testing.T) {
-	downloader := NewMegaDownloader()
-
-	err := downloader.createFileDirectoryIfNotExist("testDir/localFile.txt")
-
-	assert.Nil(t, err)
-}
-
-func TestShouldFailIfCouldNotCreateDirectory(t *testing.T) {
-	downloader := NewMegaDownloader()
-	downloader.mkDir = mockMkDirFail
-
-	err := downloader.createFileDirectoryIfNotExist("temp/file.txt")
-
-	assert.Equal(t, errMkDir, err)
-}
-
-func TestShouldFailCreatingDirectoryIfPathIsTooLong(t *testing.T) {
-	downloader := NewMegaDownloader()
-	path := filepath.Join(strings.Repeat("?", 1000), "path")
-
-	err := downloader.createFileDirectoryIfNotExist(path)
-
-	require.NotNil(t, err)
-	assert.Contains(t, err.Error(), "???????????????")
+			require.NotNil(t, err)
+			require.NotEmpty(t, test.expErr)
+			assert.Contains(t, err.Error(), test.expErr)
+		})
+	}
 }
 
 func mockRemoveFileSuccess(path string) error {
@@ -103,4 +180,11 @@ func mockRemoveFileFail(path string) error {
 
 func mockMkDirFail(path string, perm fs.FileMode) error {
 	return errMkDir
+}
+
+func cleanupTestDir(t *testing.T) {
+	dir, err := os.Getwd()
+	require.Nil(t, err)
+	err = os.RemoveAll(filepath.Join(dir, "temp"))
+	require.Nil(t, err)
 }
