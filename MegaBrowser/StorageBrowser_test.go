@@ -34,6 +34,10 @@ type mockFs struct {
 	errGetChildren error
 }
 
+type mockDownloader struct {
+	downloadErr error
+}
+
 func TestInitializeStorageBrowser(t *testing.T) {
 	tests := []struct {
 		name                    string
@@ -84,7 +88,7 @@ func TestInitializeStorageBrowser(t *testing.T) {
 			mockFs := mockFs{
 				errGetChildren: test.getChildrenError,
 			}
-			storageBrowser := NewMegaBrowser(&mockClient, &mockFs)
+			storageBrowser := NewMegaBrowser(&mockClient, &mockFs, &mockDownloader{})
 			if test.getRootNodeHashFunction != nil {
 				storageBrowser.getRootNodeHash = test.getRootNodeHashFunction
 			}
@@ -206,7 +210,7 @@ func TestGetObjectNodeHash(t *testing.T) {
 				errGetChildren: test.getChildrenError,
 			}
 			mockClient := mockClient{}
-			storageBrowser := NewMegaBrowser(&mockClient, &mockFs)
+			storageBrowser := NewMegaBrowser(&mockClient, &mockFs, &mockDownloader{})
 			storageBrowser.getRootNodeHash = getRootNodeHash
 			if test.getChildrenFunction != nil {
 				storageBrowser.getChildren = test.getChildrenFunction
@@ -261,6 +265,10 @@ func (m *mockFs) GetRoot() *mega.Node {
 
 func (m *mockFs) HashLookup(string) *mega.Node {
 	return nil
+}
+
+func (m *mockDownloader) DownloadFile(node *mega.Node, localDownloadPath string) error {
+	return m.downloadErr
 }
 
 func mockGetRootNodeHash(nodes []Node) (string, error) {
