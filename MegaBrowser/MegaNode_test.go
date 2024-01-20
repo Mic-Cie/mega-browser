@@ -12,6 +12,7 @@ type mockNode struct {
 	name     string
 	nodeType int
 	hash     string
+	size     int64
 }
 
 func TestShouldConvertStructArrayToInterfaceArray(t *testing.T) {
@@ -100,6 +101,17 @@ func TestShouldFailIfDirectoryNotExistOnTheList(t *testing.T) {
 	assert.Equal(t, fmt.Errorf("could not find directory: %s", expName), err)
 }
 
+func TestShouldReturnNodeSize(t *testing.T) {
+	expSize := int64(1)
+	node := mockNode{
+		size: int64(expSize),
+	}
+
+	size := getNodeSize(&node)
+
+	assert.Equal(t, expSize, size)
+}
+
 func (m *mockNode) GetName() string {
 	return m.name
 }
@@ -110,4 +122,8 @@ func (m *mockNode) GetType() int {
 
 func (m *mockNode) GetHash() string {
 	return m.hash
+}
+
+func (m *mockNode) GetSize() int64 {
+	return m.size
 }

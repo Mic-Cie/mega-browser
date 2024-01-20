@@ -17,7 +17,10 @@ type Node interface {
 	GetName() string
 	GetType() int
 	GetHash() string
+	GetSize() int64
 }
+
+type getNodeSizeFunc func(Node) int64
 
 // nodeStructArrToInterfaceArr converts array of mega.Node structures to an array of Node interface instances, to make it more generic and allow testing.
 func nodeStructArrToInterfaceArr(nodes []*mega.Node) []Node {
@@ -53,4 +56,9 @@ func getNodeHashOfExpectedItem(expectedItem string, expectedItemType int, currDi
 		}
 	}
 	return ""
+}
+
+// getNodeSize is a wrapper function that calls the node's Getsize() function. Used for extra abstraction layer.
+func getNodeSize(node Node) int64 {
+	return node.GetSize()
 }
