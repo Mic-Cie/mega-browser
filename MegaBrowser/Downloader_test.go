@@ -15,9 +15,10 @@ import (
 var (
 	errRemoveFile = fmt.Errorf("mock remove file error")
 	errMkDir      = fmt.Errorf("mock mkdir error")
+	errGetwd      = fmt.Errorf("mock getwd error")
 )
 
-func TestDowloadFileSuccessCase(t *testing.T) {
+func TestDownloadFileSuccessCase(t *testing.T) {
 	tests := []struct {
 		name               string
 		path               string
@@ -39,7 +40,9 @@ func TestDowloadFileSuccessCase(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			downloader := NewMegaDownloader()
+			downloader := NewMegaDownloader(
+				&mockClient{},
+			)
 			if test.removeFileFunction != nil {
 				downloader.removeFile = test.removeFileFunction
 			}
@@ -54,12 +57,14 @@ func TestDowloadFileSuccessCase(t *testing.T) {
 	}
 }
 
-func TestDowloadFileFailCase(t *testing.T) {
+func TestDownloadFileFailCase(t *testing.T) {
 	tests := []struct {
 		name               string
 		path               string
 		removeFileFunction removeFileFunc
 		mkdirFunction      mkdirFunc
+		getWdFunction      getWdFunc
+		downloadErr        error
 		expErr             string
 	}{
 		{
@@ -67,6 +72,8 @@ func TestDowloadFileFailCase(t *testing.T) {
 			path:               strings.Repeat("?", 1000),
 			removeFileFunction: nil,
 			mkdirFunction:      nil,
+			downloadErr:        nil,
+			getWdFunction:      nil,
 			expErr:             strings.Repeat("?", 1000),
 		},
 		{
@@ -74,6 +81,8 @@ func TestDowloadFileFailCase(t *testing.T) {
 			path:               filepath.Join("testDir", "localFile.txt"),
 			removeFileFunction: mockRemoveFileFail,
 			mkdirFunction:      nil,
+			downloadErr:        nil,
+			getWdFunction:      nil,
 			expErr:             errRemoveFile.Error(),
 		},
 		{
@@ -81,17 +90,45 @@ func TestDowloadFileFailCase(t *testing.T) {
 			path:               "temp/path/that/not/exist.txt",
 			removeFileFunction: nil,
 			mkdirFunction:      mockMkDirFail,
+			downloadErr:        nil,
+			getWdFunction:      nil,
 			expErr:             errMkDir.Error(),
+		},
+		{
+			name:               "should fail, if could not download file",
+			path:               filepath.Join("testDir", "localFile.txt"),
+			removeFileFunction: mockRemoveFileSuccess,
+			mkdirFunction:      nil,
+			downloadErr:        errDownload,
+			getWdFunction:      nil,
+			expErr:             errDownload.Error(),
+		},
+		{
+			name:               "should fail, if could not get working directory",
+			path:               filepath.Join("testDir", "localFile.txt"),
+			removeFileFunction: mockRemoveFileSuccess,
+			mkdirFunction:      nil,
+			downloadErr:        nil,
+			getWdFunction:      mockGetWdFail,
+			expErr:             errGetwd.Error(),
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			downloader := NewMegaDownloader()
+			client := &mockClient{
+				errDownload: test.downloadErr,
+			}
+			downloader := NewMegaDownloader(
+				client,
+			)
 			if test.removeFileFunction != nil {
 				downloader.removeFile = test.removeFileFunction
 			}
 			if test.mkdirFunction != nil {
 				downloader.mkDir = test.mkdirFunction
+			}
+			if test.getWdFunction != nil {
+				downloader.getWd = test.getWdFunction
 			}
 
 			err := downloader.DownloadFile(nil, test.path)
@@ -122,7 +159,9 @@ func TestCreateDirectoryIfItNotExistsSuccessCase(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			downloader := NewMegaDownloader()
+			downloader := NewMegaDownloader(
+				&mockClient{},
+			)
 			if test.needCleanup {
 				defer cleanupTestDir(t)
 			}
@@ -156,7 +195,9 @@ func TestCreateDirectoryIfItNotExistsFailCase(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			downloader := NewMegaDownloader()
+			downloader := NewMegaDownloader(
+				&mockClient{},
+			)
 			if test.mkdirFunction != nil {
 				downloader.mkDir = test.mkdirFunction
 			}
@@ -180,6 +221,10 @@ func mockRemoveFileFail(path string) error {
 
 func mockMkDirFail(path string, perm fs.FileMode) error {
 	return errMkDir
+}
+
+func mockGetWdFail() (string, error) {
+	return "", errGetwd
 }
 
 func cleanupTestDir(t *testing.T) {

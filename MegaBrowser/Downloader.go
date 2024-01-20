@@ -13,17 +13,22 @@ type Downloader interface {
 }
 
 type MegaDownloader struct {
+	client     StorageClient
 	removeFile removeFileFunc
 	mkDir      mkdirFunc
+	getWd      getWdFunc
 }
 
 type removeFileFunc func(path string) error
 type mkdirFunc func(path string, perm fs.FileMode) error
+type getWdFunc func() (string, error)
 
-func NewMegaDownloader() *MegaDownloader {
+func NewMegaDownloader(client StorageClient) *MegaDownloader {
 	return &MegaDownloader{
+		client:     client,
 		removeFile: os.Remove,
 		mkDir:      os.MkdirAll,
+		getWd:      os.Getwd,
 	}
 }
 
@@ -34,6 +39,16 @@ func (md *MegaDownloader) DownloadFile(node *mega.Node, localDownloadPath string
 	}
 
 	err = md.createFileDirectoryIfNotExist(localDownloadPath)
+	if err != nil {
+		return err
+	}
+
+	currentDir, err := md.getWd()
+	if err != nil {
+		return err
+	}
+
+	err = md.client.DownloadFile(node, filepath.Join(currentDir, localDownloadPath), nil)
 	if err != nil {
 		return err
 	}
