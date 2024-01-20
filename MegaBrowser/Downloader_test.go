@@ -43,6 +43,7 @@ func TestDownloadFileSuccessCase(t *testing.T) {
 			downloader := NewMegaDownloader(
 				&mockClient{},
 			)
+			downloader.getNodeSize = mockGetNodeSize
 			if test.removeFileFunction != nil {
 				downloader.removeFile = test.removeFileFunction
 			}
@@ -121,6 +122,7 @@ func TestDownloadFileFailCase(t *testing.T) {
 			downloader := NewMegaDownloader(
 				client,
 			)
+			downloader.getNodeSize = mockGetNodeSize
 			if test.removeFileFunction != nil {
 				downloader.removeFile = test.removeFileFunction
 			}
@@ -225,6 +227,10 @@ func mockMkDirFail(path string, perm fs.FileMode) error {
 
 func mockGetWdFail() (string, error) {
 	return "", errGetwd
+}
+
+func mockGetNodeSize(Node) int64 {
+	return int64(1)
 }
 
 func cleanupTestDir(t *testing.T) {

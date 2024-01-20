@@ -244,6 +244,10 @@ func (m *mockClient) Login(login string, pass string) error {
 }
 
 func (m *mockClient) DownloadFile(src *mega.Node, dstpath string, progress *chan int) error {
+	if progress != nil {
+		*progress <- 1
+		defer close(*progress)
+	}
 	return m.errDownload
 }
 
