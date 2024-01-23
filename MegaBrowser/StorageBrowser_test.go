@@ -3,6 +3,7 @@ package megabrowser
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -241,6 +242,15 @@ func TestShouldGetChildren(t *testing.T) {
 
 	assert.Equal(t, len(nodes), len(children))
 	assert.Nil(t, err)
+}
+
+func TestStoragrBrowserUpdate(t *testing.T) {
+	downloader := NewMegaDownloader(&mockClient{})
+	storageBrowser := NewMegaBrowser(nil, nil, downloader)
+
+	err := storageBrowser.UpdateFile(nil, strings.Repeat("?", 1000))
+	require.NotNil(t, err)
+	assert.Contains(t, err.Error(), strings.Repeat("?", 1000))
 }
 
 func (m *mockClient) Login(login string, pass string) error {

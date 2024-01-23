@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/t3rm1n4l/go-mega"
 )
 
 const (
@@ -103,6 +105,11 @@ func (mb *MegaBrowser) GetObjectNode(file string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("could not find object node for %s", file)
+}
+
+// UpdateFile updates a file at specified localDownloadPath with a file downloaded from Mega node
+func (md *MegaBrowser) UpdateFile(node *mega.Node, localDownloadPath string) error {
+	return md.downloader.DownloadFile(node, localDownloadPath)
 }
 
 func getRootNodeHash(nodes []Node) (string, error) {
