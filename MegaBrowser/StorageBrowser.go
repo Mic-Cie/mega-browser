@@ -8,15 +8,6 @@ import (
 	"github.com/t3rm1n4l/go-mega"
 )
 
-const (
-	// login of the Mega repository owner.
-	login = `login`
-	// password of the Mega repository owner.
-	pass = `password`
-	// rootNodeName is the name of the directory which will be considered root directory of the updated application. Make sure to place it in the root of your Mega repository.
-	rootNodeName = "root-node-name"
-)
-
 var errGetRootNodeHash = fmt.Errorf("failed to get root node hash")
 
 type StorageBrowser interface {
@@ -24,6 +15,9 @@ type StorageBrowser interface {
 }
 
 type MegaBrowser struct {
+	login           string
+	pass            string
+	rootNodeName    string
 	megaClient      StorageClient
 	megaFs          Fs
 	downloader      Downloader
@@ -33,11 +27,25 @@ type MegaBrowser struct {
 	rootNodeHash    string
 }
 
-type getRootNodeHashFunc func(nodes []Node) (string, error)
+type getRootNodeHashFunc func(nodes []Node, rootNodeName string) (string, error)
 type getChildrenFunc func(fs Fs, nodeHash string) ([]Node, error)
 
-func NewMegaBrowser(megaClient StorageClient, fs Fs, downloader Downloader) *MegaBrowser {
+/*
+NewMegaBrowser creates a browser object for a Mega repository.
+
+Expected input parameters are:
+
+	login, pass - credentials for the Mega repository, containing the updated project.
+	rootNodeName - name of the directory, containing the updated project.
+	megaClient - client for the Mega repository. Can be created with mega.New() function from t3rm1n4l/go-mega package. Make sure to create the megaClient object before actually calling NewMegaBrowser() function.
+	fs - system of Mega nodes. FS parameter of the megaClient above can be used.
+	downloader - object responsible for downloading and updating project files. Can be created with NewMegaDownloader(client StorageClient) function from this package.
+*/
+func NewMegaBrowser(login string, pass string, rootNodeName string, megaClient StorageClient, fs Fs, downloader Downloader) *MegaBrowser {
 	browser := &MegaBrowser{
+		login:           login,
+		pass:            pass,
+		rootNodeName:    rootNodeName,
 		megaClient:      megaClient,
 		megaFs:          fs,
 		downloader:      downloader,
@@ -48,9 +56,17 @@ func NewMegaBrowser(megaClient StorageClient, fs Fs, downloader Downloader) *Meg
 	return browser
 }
 
-// Initialize logs in to the Mega repository and initializes the browser parameters, based on that repository.
+/*
+Initialize logs in to the Mega repository and initializes the browser parameters, based on that repository.
+
+Returns an error if:
+
+	failed to login
+	an error occured while getting children of a repository root node
+	could not find the project root node
+*/
 func (mb *MegaBrowser) Initialize() error {
-	err := mb.megaClient.Login(login, pass)
+	err := mb.megaClient.Login(mb.login, mb.pass)
 	if err != nil {
 		return err
 	}
@@ -61,7 +77,7 @@ func (mb *MegaBrowser) Initialize() error {
 	}
 
 	convertedNodes := nodeStructArrToInterfaceArr(nodes)
-	rootNodeHash, err := mb.getRootNodeHash(convertedNodes)
+	rootNodeHash, err := mb.getRootNodeHash(convertedNodes, mb.rootNodeName)
 	if err != nil {
 		return err
 	}
@@ -70,6 +86,15 @@ func (mb *MegaBrowser) Initialize() error {
 	return nil
 }
 
+/*
+GetObjectNode takes path to a file and returns its hash from the Mega repository.
+
+Returns an error if:
+
+	given path is empty
+	an error occured while getting children of a node
+	expected to find node of a file or directory, but did not find it
+*/
 func (mb *MegaBrowser) GetObjectNode(file string) (string, error) {
 	splitPath := strings.Split(filepath.ToSlash(file), mb.targetSeparator)
 	len := len(splitPath)
@@ -108,11 +133,16 @@ func (mb *MegaBrowser) GetObjectNode(file string) (string, error) {
 }
 
 // UpdateFile updates a file at specified localDownloadPath with a file downloaded from Mega node
-func (md *MegaBrowser) UpdateFile(node *mega.Node, localDownloadPath string) error {
-	return md.downloader.DownloadFile(node, localDownloadPath)
+func (mb *MegaBrowser) UpdateFile(node *mega.Node, localDownloadPath string) error {
+	return mb.downloader.DownloadFile(node, localDownloadPath)
 }
 
-func getRootNodeHash(nodes []Node) (string, error) {
+// getRoodNodeHash takes an array of nodes and checks if any of them is a project root node.
+//
+// A node is considered a root node, if its name is the same as rootNodeName, and it is a directory.
+//
+// Returns hash of the node. If could not find the root node, returns an error.
+func getRootNodeHash(nodes []Node, rootNodeName string) (string, error) {
 	for _, node := range nodes {
 		nodeName := node.GetName()
 		nodeType := node.GetType()
