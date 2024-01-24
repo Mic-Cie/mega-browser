@@ -17,6 +17,9 @@ const (
 	expDirHash      = "expdirhash"
 	expFileName     = "expFile"
 	expDirName      = "expDir"
+	login           = `login`
+	pass            = `password`
+	rootNodeName    = "root-node-name"
 )
 
 var (
@@ -89,7 +92,7 @@ func TestInitializeStorageBrowser(t *testing.T) {
 			mockFs := mockFs{
 				errGetChildren: test.getChildrenError,
 			}
-			storageBrowser := NewMegaBrowser(&mockClient, &mockFs, &mockDownloader{})
+			storageBrowser := NewMegaBrowser(login, pass, rootNodeName, &mockClient, &mockFs, &mockDownloader{})
 			if test.getRootNodeHashFunction != nil {
 				storageBrowser.getRootNodeHash = test.getRootNodeHashFunction
 			}
@@ -132,7 +135,7 @@ func TestGetRootNodeHash(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			rootNodeHash, err := getRootNodeHash(test.nodes)
+			rootNodeHash, err := getRootNodeHash(test.nodes, rootNodeName)
 
 			assert.Equal(t, test.expRootNodeHash, rootNodeHash)
 			assert.Equal(t, test.expErr, err)
@@ -211,7 +214,7 @@ func TestGetObjectNodeHash(t *testing.T) {
 				errGetChildren: test.getChildrenError,
 			}
 			mockClient := mockClient{}
-			storageBrowser := NewMegaBrowser(&mockClient, &mockFs, &mockDownloader{})
+			storageBrowser := NewMegaBrowser(login, pass, rootNodeName, &mockClient, &mockFs, &mockDownloader{})
 			storageBrowser.getRootNodeHash = getRootNodeHash
 			if test.getChildrenFunction != nil {
 				storageBrowser.getChildren = test.getChildrenFunction
@@ -244,9 +247,9 @@ func TestShouldGetChildren(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestStoragrBrowserUpdate(t *testing.T) {
+func TestStorageBrowserUpdate(t *testing.T) {
 	downloader := NewMegaDownloader(&mockClient{})
-	storageBrowser := NewMegaBrowser(nil, nil, downloader)
+	storageBrowser := NewMegaBrowser(login, pass, rootNodeName, nil, nil, downloader)
 
 	err := storageBrowser.UpdateFile(nil, strings.Repeat("?", 1000))
 	require.NotNil(t, err)
@@ -281,7 +284,7 @@ func (m *mockDownloader) DownloadFile(node *mega.Node, localDownloadPath string)
 	return m.downloadErr
 }
 
-func mockGetRootNodeHash(nodes []Node) (string, error) {
+func mockGetRootNodeHash(nodes []Node, rootNodeName string) (string, error) {
 	return expRootNodeHash, nil
 }
 
